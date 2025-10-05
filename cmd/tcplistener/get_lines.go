@@ -27,6 +27,9 @@ func getLinesChannel(f io.ReadCloser) <-chan string {
 				}
 			}
 			if err == io.EOF {
+				if line != "" {
+					ch <- line
+				}
 				return
 			}
 			if err != nil {
