@@ -47,7 +47,11 @@ func (h Headers) Parse(data []byte) (n int, done bool, err error) {
 		return 0, false, errors.New("header-name can contain only: capital letters, small letters, digits, and special characters (!,#,$,%,&,',*,+,-,.,^,_,`,|,~)")
 	}
 
-	h[strings.ToLower(header_name)] = header_value
+	if _, ok := h[strings.ToLower(header_name)]; ok {
+		h[strings.ToLower(header_name)] += ", " + header_value
+	} else {
+		h[strings.ToLower(header_name)] = header_value
+	}
 	consumed_bytes := len(headers_from_data[0]) + /*crlf; because we removed it on split*/ 2
 
 	return consumed_bytes, false, nil

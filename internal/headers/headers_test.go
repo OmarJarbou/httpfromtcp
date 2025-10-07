@@ -83,4 +83,28 @@ func TestHeaderParse(t *testing.T) {
 	assert.Equal(t, "localhost:42069", headers["host^address-official#2"])
 	assert.Equal(t, 42, n)
 	assert.False(t, done)
+
+	// Test: Valid header with multiple values
+	headers = NewHeaders()
+	data = []byte("Set-Person: lane-loves-go\r\nSet-Person: prime-loves-zig\r\nSet-Person: tj-loves-ocaml\r\n\r\n")
+	n, done, err = headers.Parse(data)
+	require.NoError(t, err)
+	require.NotNil(t, headers)
+	assert.Equal(t, "lane-loves-go", headers["set-person"])
+	assert.Equal(t, 27, n)
+	assert.False(t, done)
+
+	m, done, err = headers.Parse(data[n:])
+	require.NoError(t, err)
+	require.NotNil(t, headers)
+	assert.Equal(t, "lane-loves-go, prime-loves-zig", headers["set-person"])
+	assert.Equal(t, 29, m)
+	assert.False(t, done)
+
+	n, done, err = headers.Parse(data[n+m:])
+	require.NoError(t, err)
+	require.NotNil(t, headers)
+	assert.Equal(t, "lane-loves-go, prime-loves-zig, tj-loves-ocaml", headers["set-person"])
+	assert.Equal(t, 28, n)
+	assert.False(t, done)
 }
