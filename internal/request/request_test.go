@@ -180,7 +180,7 @@ func TestHeadersParse(t *testing.T) {
 	// Test: Standard Headers 2
 	reader = &chunkReader{
 		data:            "GET / HTTP/1.1\r\nHost: localhost:42069\r\nUser-Agent: curl/7.81.0\r\nAccept: */*\r\n\r\n",
-		numBytesPerRead: 14,
+		numBytesPerRead: 60,
 	}
 	r, err = RequestFromReader(reader)
 	require.NoError(t, err)

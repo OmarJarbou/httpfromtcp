@@ -121,15 +121,30 @@ func parseRequestLine(req_bytes []byte) (int, *RequestLine, error) {
 	return len(req_parts[0]) + 2 /*for crlf*/, &req_line, nil
 }
 
-// func (r *Request) parse(data []byte) (int, error) {
-// 	totalBytesParsed := 0
-// 	for r.ParserState != done {
-// 		n, err := r.parseSingle(data[totalBytesParsed:])
-
-// 	}
-// }
-
 func (r *Request) parse(data []byte) (int, error) {
+	// Since a single chunk (or buffer) can contain data for multiple headers, we can’t assume that
+	// only one header exists per read. Therefore, instead of calling header.parse() just once per
+	// chunk and clearing the buffer from only that header, we loop to parse all complete headers
+	// currently available in the buffer. After successfully parsing each header, we remove its data
+	// from the buffer, ensuring that only the unparsed (incomplete) data remains
+
+	// While parsing request line is actualy done only one time, so it won't be affected
+
+	totalBytesParsed := 0
+	for r.ParserState != done {
+		n, err := r.parseSingle(data[totalBytesParsed:])
+		totalBytesParsed += n
+		if err != nil {
+			return totalBytesParsed, err
+		}
+		if n == 0 {
+			break
+		}
+	}
+	return totalBytesParsed, nil
+}
+
+func (r *Request) parseSingle(data []byte) (int, error) {
 	if r.ParserState == initialized {
 		n, req_line, err := parseRequestLine(data)
 		if err != nil {
