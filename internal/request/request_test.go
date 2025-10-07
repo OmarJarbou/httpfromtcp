@@ -41,7 +41,7 @@ func TestRequestLineParse(t *testing.T) {
 	require.NotNil(t, req)
 	assert.Equal(t, req.RequestLine.Method, "GET")
 	assert.Equal(t, req.RequestLine.RequestTarget, "/")
-	assert.Equal(t, req.RequestLine.HttpVersion, "HTTP/1.1")
+	assert.Equal(t, req.RequestLine.HttpVersion, "1.1")
 
 	// Test: Good GET Request line 2
 	reader = &chunkReader{
@@ -53,7 +53,7 @@ func TestRequestLineParse(t *testing.T) {
 	require.NotNil(t, req)
 	assert.Equal(t, req.RequestLine.Method, "GET")
 	assert.Equal(t, req.RequestLine.RequestTarget, "/")
-	assert.Equal(t, req.RequestLine.HttpVersion, "HTTP/1.1")
+	assert.Equal(t, req.RequestLine.HttpVersion, "1.1")
 
 	// Test: Good GET Request line 3
 	reader = &chunkReader{
@@ -65,7 +65,7 @@ func TestRequestLineParse(t *testing.T) {
 	require.NotNil(t, req)
 	assert.Equal(t, req.RequestLine.Method, "GET")
 	assert.Equal(t, req.RequestLine.RequestTarget, "/")
-	assert.Equal(t, req.RequestLine.HttpVersion, "HTTP/1.1")
+	assert.Equal(t, req.RequestLine.HttpVersion, "1.1")
 
 	// Test: Good GET Request line with path
 	reader = &chunkReader{
@@ -77,7 +77,7 @@ func TestRequestLineParse(t *testing.T) {
 	require.NotNil(t, req)
 	assert.Equal(t, req.RequestLine.Method, "GET")
 	assert.Equal(t, req.RequestLine.RequestTarget, "/coffee")
-	assert.Equal(t, req.RequestLine.HttpVersion, "HTTP/1.1")
+	assert.Equal(t, req.RequestLine.HttpVersion, "1.1")
 
 	// Test: Good POST Request with path
 	reader = &chunkReader{
@@ -89,7 +89,7 @@ func TestRequestLineParse(t *testing.T) {
 	require.NotNil(t, req)
 	assert.Equal(t, req.RequestLine.Method, "POST")
 	assert.Equal(t, req.RequestLine.RequestTarget, "/coffee")
-	assert.Equal(t, req.RequestLine.HttpVersion, "HTTP/1.1")
+	assert.Equal(t, req.RequestLine.HttpVersion, "1.1")
 
 	// Test: Invalid number of parts in request line 1
 	reader = &chunkReader{

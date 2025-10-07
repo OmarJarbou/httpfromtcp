@@ -109,7 +109,7 @@ func parseRequestLine(req_bytes []byte) (int, *RequestLine, error) {
 		return 0, nil, errors.New("http version in request line must be HTTP/1.1")
 	}
 
-	req_line.HttpVersion = req_line_parts[2]
+	req_line.HttpVersion = http_version_parts[1]
 	req_line.RequestTarget = req_line_parts[1]
 	req_line.Method = req_line_parts[0]
 
