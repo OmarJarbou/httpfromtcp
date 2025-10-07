@@ -57,7 +57,11 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 		n, err := reader.Read(buffer[bytes_read_count:])
 		if err != nil {
 			if err == io.EOF {
-				req.ParserState = done
+				if req.ParserState == parsing_headers {
+					return nil, errors.New("header field has no ending")
+				} else {
+					req.ParserState = done
+				}
 				continue
 			} else {
 				return nil, err

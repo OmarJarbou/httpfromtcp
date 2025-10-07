@@ -227,14 +227,13 @@ func TestHeadersParse(t *testing.T) {
 	assert.Equal(t, "localhost:42069, localhost:42070", r.Headers["host"])
 
 	// Test: Missing End of Headers
-	// reader = &chunkReader{
-	// 	data:            "GET / HTTP/1.1\r\nHost: localhost:42069\r\nHost: localhost:42070\r\n",
-	// 	numBytesPerRead: 3,
-	// }
-	// r, err = RequestFromReader(reader)
-	// require.Error(t, err)
-	// require.NotNil(t, r)
-	// assert.Equal(t, "localhost:42069, localhost:42070", r.Headers["host"])
+	reader = &chunkReader{
+		data:            "GET / HTTP/1.1\r\nHost: localhost:42069\r\nHost: localhost:42070\r\n",
+		numBytesPerRead: 3,
+	}
+	_, err = RequestFromReader(reader)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "header field has no ending")
 
 	// Test: Empty header value
 	reader = &chunkReader{
