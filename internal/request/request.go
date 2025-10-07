@@ -4,18 +4,22 @@ import (
 	"errors"
 	"io"
 	"strings"
+
+	"github.com/OmarJarbou/httpfromtcp/internal/headers"
 )
 
 type State int
 
 const (
 	initialized State = iota
-	second
+	parsing_headers
+	temp
 	done
 )
 
 type Request struct {
 	RequestLine RequestLine
+	Headers     headers.Headers
 	ParserState State
 }
 
@@ -41,6 +45,7 @@ const BUFFER_SIZE int = 8
 func RequestFromReader(reader io.Reader) (*Request, error) {
 	req := Request{
 		RequestLine: RequestLine{},
+		Headers:     headers.Headers{},
 		ParserState: initialized,
 	}
 	buffer := make([]byte, BUFFER_SIZE)
@@ -116,6 +121,14 @@ func parseRequestLine(req_bytes []byte) (int, *RequestLine, error) {
 	return len(req_parts[0]) + 2 /*for crlf*/, &req_line, nil
 }
 
+// func (r *Request) parse(data []byte) (int, error) {
+// 	totalBytesParsed := 0
+// 	for r.ParserState != done {
+// 		n, err := r.parseSingle(data[totalBytesParsed:])
+
+// 	}
+// }
+
 func (r *Request) parse(data []byte) (int, error) {
 	if r.ParserState == initialized {
 		n, req_line, err := parseRequestLine(data)
@@ -124,10 +137,19 @@ func (r *Request) parse(data []byte) (int, error) {
 		}
 		if req_line != nil {
 			r.RequestLine = *req_line
-			r.ParserState = second
+			r.ParserState = parsing_headers
 		}
 		return n, nil
-	} else if r.ParserState == second {
+	} else if r.ParserState == parsing_headers {
+		n, done, err := r.Headers.Parse(data)
+		if err != nil {
+			return 0, err
+		}
+		if done {
+			r.ParserState = temp
+		}
+		return n, nil
+	} else if r.ParserState == temp {
 		return 0, nil
 	} else if r.ParserState == done {
 		return 0, errors.New("error: trying to read data in a done state")

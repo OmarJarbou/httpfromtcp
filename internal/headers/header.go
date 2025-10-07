@@ -47,8 +47,10 @@ func (h Headers) Parse(data []byte) (n int, done bool, err error) {
 		return 0, false, errors.New("header-name can contain only: capital letters, small letters, digits, and special characters (!,#,$,%,&,',*,+,-,.,^,_,`,|,~)")
 	}
 
-	if _, ok := h[strings.ToLower(header_name)]; ok {
-		h[strings.ToLower(header_name)] += ", " + header_value
+	if value, ok := h[strings.ToLower(header_name)]; ok {
+		if value != header_value {
+			h[strings.ToLower(header_name)] += ", " + header_value
+		}
 	} else {
 		h[strings.ToLower(header_name)] = header_value
 	}
