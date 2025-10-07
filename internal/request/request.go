@@ -66,7 +66,7 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 			copy(buffer, temp_buf)
 		}
 
-		p, err := req.parse(buffer)
+		p, err := req.parse(buffer[:bytes_read_count])
 		if err != nil {
 			return nil, err
 		}
