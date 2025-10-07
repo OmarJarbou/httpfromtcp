@@ -1,0 +1,41 @@
+package headers
+
+import (
+	"errors"
+	"strings"
+)
+
+type Headers map[string]string
+
+func (h Headers) Parse(data []byte) (n int, done bool, err error) {
+	headers_string := string(data)
+
+	crlf_first_occurrence := strings.Index(headers_string, "\r\n")
+	if crlf_first_occurrence == -1 {
+		return 0, false, nil
+	}
+
+	if crlf_first_occurrence == 0 {
+		return len(headers_string), true, nil // which is the length of crlf = 2
+	}
+
+	headers_from_data := strings.Split(headers_string, "\r\n")
+	first_colon_occurrence := strings.Index(headers_from_data[0], ":")
+	if first_colon_occurrence == -1 {
+		return 0, false, errors.New("a header/field-line should contain a \":\" to split field-name and field-value")
+	}
+	// ex: header = "  Host : localhost:42069  "
+	header_name := headers_from_data[0][:first_colon_occurrence]    // = "  Host "
+	header_value := headers_from_data[0][first_colon_occurrence+1:] // = " localhost:42069  "
+	header_name = strings.TrimLeft(header_name, " ")                // = "Host "
+	header_value = strings.Trim(header_value, " ")                  // = "localhost:42069"
+
+	if strings.Contains(header_name, " ") {
+		return 0, false, errors.New("the field-name in header/field-line must not contain whitespaces after it (i.e. before the colon)")
+	}
+
+	h[header_name] = header_value
+	consumed_bytes := len(headers_from_data[0]) + /*crlf; because we removed it on split*/ 2
+
+	return consumed_bytes, false, nil
+}
