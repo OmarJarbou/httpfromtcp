@@ -1,26 +1,29 @@
 package server
 
 import (
+	"bytes"
 	"fmt"
 	"log"
 	"net"
 	"strconv"
 	"sync/atomic"
 
-	"github.com/OmarJarbou/httpfromtcp/internal/response"
+	"github.com/OmarJarbou/httpfromtcp/internal/request"
 )
 
 type Server struct {
 	Listener net.Listener
+	Handler  Handler
 	Closed   atomic.Bool
 }
 
-func Serve(port int) (*Server, error) {
+func Serve(port int, handler Handler) (*Server, error) {
 	server := Server{}
 	listener, err := net.Listen("tcp", ":"+strconv.Itoa(port))
 	if err != nil {
 		return &server, err
 	}
+	server.Handler = handler
 	server.Listener = listener
 
 	go server.listen()
@@ -46,15 +49,14 @@ func (s *Server) listen() {
 }
 
 func (s *Server) handle(conn net.Conn) {
-	err := response.WriteStatusLine(conn, response.OK)
+	req, err := request.RequestFromReader(conn)
 	if err != nil {
 		log.Fatal(err)
-		return
 	}
-	headers := response.GetDefaultHeaders(0)
-	err = response.WriteHeaders(conn, headers)
-	if err != nil {
-		log.Fatal(err)
-		return
-	}
+
+	handler_data := []byte{}
+	buffer := bytes.NewBuffer(handler_data)
+	handler_err := s.Handler(buffer, req)
+
+	handler_err.handlerResponseWriter(conn, buffer)
 }
