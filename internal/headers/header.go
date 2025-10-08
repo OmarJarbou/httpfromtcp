@@ -17,7 +17,7 @@ func (h Headers) Parse(data []byte) (n int, done bool, err error) {
 	}
 
 	if crlf_first_occurrence == 0 {
-		return len(headers_string), true, nil // which is the length of crlf = 2
+		return 2, true, nil
 	}
 
 	headers_from_data := strings.Split(headers_string, "\r\n")

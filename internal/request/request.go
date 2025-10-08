@@ -3,6 +3,7 @@ package request
 import (
 	"errors"
 	"io"
+	"strconv"
 	"strings"
 
 	"github.com/OmarJarbou/httpfromtcp/internal/headers"
@@ -13,14 +14,20 @@ type State int
 const (
 	initialized State = iota
 	parsing_headers
-	temp
+	parsing_body
 	done
 )
 
 type Request struct {
 	RequestLine RequestLine
 	Headers     headers.Headers
+	Body        []byte
 	ParserState State
+}
+
+func (r *Request) Get(header_name string) (header_value string, found bool) {
+	header_value, found = r.Headers[strings.ToLower(header_name)]
+	return
 }
 
 type RequestLine struct {
@@ -46,6 +53,7 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 	req := Request{
 		RequestLine: RequestLine{},
 		Headers:     headers.Headers{},
+		Body:        []byte{},
 		ParserState: initialized,
 	}
 	buffer := make([]byte, BUFFER_SIZE)
@@ -59,8 +67,19 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 			if err == io.EOF {
 				if req.ParserState == parsing_headers {
 					return nil, errors.New("header field has no ending")
-				} else {
-					req.ParserState = done
+				} else if req.ParserState == parsing_body {
+					content_length_string, _ := req.Get("Content-Length")
+					content_length, err := strconv.Atoi(content_length_string)
+					if err != nil {
+						return nil, err
+					}
+					if len(req.Body) == content_length {
+						req.ParserState = done
+					} else if len(req.Body) < content_length {
+						return nil, errors.New("body of the request is shorter than reported Content-Length")
+					} else if len(req.Body) > content_length {
+						return nil, errors.New("body of the request is longer than reported Content-Length")
+					}
 				}
 				continue
 			} else {
@@ -135,21 +154,30 @@ func (r *Request) parse(data []byte) (int, error) {
 	// While parsing request line is actualy done only one time, so it won't be affected
 
 	totalBytesParsed := 0
-	for r.ParserState != done {
+	if r.ParserState == parsing_headers {
+		for !(r.ParserState == parsing_body || r.ParserState == done) {
+			n, err := r.parseSingle(data[totalBytesParsed:])
+			totalBytesParsed += n
+			if err != nil {
+				return totalBytesParsed, err
+			}
+			if n == 0 {
+				break
+			}
+		}
+	} else {
 		n, err := r.parseSingle(data[totalBytesParsed:])
 		totalBytesParsed += n
 		if err != nil {
 			return totalBytesParsed, err
-		}
-		if n == 0 {
-			break
 		}
 	}
 	return totalBytesParsed, nil
 }
 
 func (r *Request) parseSingle(data []byte) (int, error) {
-	if r.ParserState == initialized {
+	switch r.ParserState {
+	case initialized:
 		n, req_line, err := parseRequestLine(data)
 		if err != nil {
 			return 0, err
@@ -159,20 +187,30 @@ func (r *Request) parseSingle(data []byte) (int, error) {
 			r.ParserState = parsing_headers
 		}
 		return n, nil
-	} else if r.ParserState == parsing_headers {
-		n, done, err := r.Headers.Parse(data)
+	case parsing_headers:
+		n, headers_done, err := r.Headers.Parse(data)
 		if err != nil {
 			return 0, err
 		}
-		if done {
-			r.ParserState = temp
+		if headers_done {
+			if _, ok := r.Get("Content-Length"); !ok {
+				r.ParserState = done
+			} else {
+				r.ParserState = parsing_body
+			}
 		}
 		return n, nil
-	} else if r.ParserState == temp {
-		return 0, nil
-	} else if r.ParserState == done {
+	case parsing_body:
+		n := r.parseBody(data)
+		return n, nil
+	case done:
 		return 0, errors.New("error: trying to read data in a done state")
-	} else {
+	default:
 		return 0, errors.New("error: unknown state")
 	}
+}
+
+func (r *Request) parseBody(data []byte) int {
+	r.Body = append(r.Body, data...)
+	return len(data)
 }
