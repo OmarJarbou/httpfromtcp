@@ -76,9 +76,9 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 					if len(req.Body) == content_length {
 						req.ParserState = done
 					} else if len(req.Body) < content_length {
-						return nil, errors.New("body of the request is shorter than reported Content-Length")
+						return nil, errors.New("body of the request \"" + string(req.Body) + "\" is shorter than reported Content-Length")
 					} else if len(req.Body) > content_length {
-						return nil, errors.New("body of the request is longer than reported Content-Length")
+						return nil, errors.New("body of the request \"" + string(req.Body) + "\" is longer than reported Content-Length")
 					}
 				}
 				continue
@@ -165,7 +165,8 @@ func (r *Request) parse(data []byte) (int, error) {
 				break
 			}
 		}
-	} else {
+	}
+	if r.ParserState == parsing_body || r.ParserState == initialized {
 		n, err := r.parseSingle(data[totalBytesParsed:])
 		totalBytesParsed += n
 		if err != nil {
