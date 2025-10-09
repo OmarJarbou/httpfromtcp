@@ -1,10 +1,11 @@
 package main
 
 import (
-	"io"
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 
 	"github.com/OmarJarbou/httpfromtcp/internal/request"
@@ -33,23 +34,43 @@ func main() {
 	// the server.
 }
 
-func handler(w io.Writer, r *request.Request) *server.HandlerError {
-	handler_err := server.HandlerError{}
+func handler(w response.Writer, r *request.Request) {
+	handler_response := server.HandlerResponse{}
 	switch r.RequestLine.RequestTarget {
 	case "/yourproblem":
-		handler_err.StatusCode = response.CLIENT_ERROR
-		handler_err.Message = "Your problem is not my problem\n"
+		handler_response.StatusCode = response.CLIENT_ERROR
+		handler_response.SetHeader("Content-Type", "text/html")
+		handler_response.Message = "Your request honestly kinda sucked."
 	case "/myproblem":
-		handler_err.StatusCode = response.SERVER_ERROR
-		handler_err.Message = "Woopsie, my bad\n"
+		handler_response.StatusCode = response.SERVER_ERROR
+		handler_response.SetHeader("Content-Type", "text/html")
+		handler_response.Message = "Okay, you know what? This one is on me."
 	default:
-		handler_err.StatusCode = response.OK
-		handler_err.Message = "All good, frfr\n"
+		handler_response.StatusCode = response.OK
+		handler_response.SetHeader("Content-Type", "text/html")
+		handler_response.Message = "Your request was an absolute banger."
 	}
-	_, err := w.Write([]byte(handler_err.Message))
-	if err != nil {
-		handler_err.StatusCode = response.SERVER_ERROR
-		handler_err.Message = "Error while writing body to the buffer"
+	handler_response.Message = htmlResponseFormat(handler_response.StatusCode, handler_response.Message)
+	handler_response.HandlerResponseWriter(w)
+}
+
+func htmlResponseFormat(status_code response.StatusCode, message string) string {
+	title := strconv.Itoa(int(status_code)) + " "
+	status := ""
+	switch status_code {
+	case response.OK:
+		status = "OK"
+	case response.CLIENT_ERROR:
+		status = "Bad Request"
+	case response.SERVER_ERROR:
+		status = "Internal Server Error"
 	}
-	return &handler_err
+	title += status
+
+	if status == "OK" {
+		status = "Success!"
+	}
+
+	html_response := fmt.Sprintf("<html>\r\n\t<head>\r\n\t\t<title>%s</title>\r\n\t</head>\r\n\t<body>\r\n\t\t<h1>%s</h1>\r\n\t\t<p>%s</p>\r\n\t</body>\r\n</html>\r\n", title, status, message)
+	return html_response
 }

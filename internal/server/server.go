@@ -1,7 +1,6 @@
 package server
 
 import (
-	"bytes"
 	"fmt"
 	"log"
 	"net"
@@ -41,7 +40,7 @@ func (s *Server) Close() error {
 func (s *Server) listen() {
 	for !s.Closed.Load() {
 		connection, err := s.Listener.Accept()
-		if !s.Closed.Load() {
+		if s.Closed.Load() {
 			return
 		}
 		if err != nil {
@@ -55,18 +54,18 @@ func (s *Server) listen() {
 
 func (s *Server) handle(conn net.Conn) {
 	defer conn.Close()
+	writer := response.Writer{
+		Writer:      conn,
+		WriterState: response.STATUS_LINE,
+	}
 	req, err := request.RequestFromReader(conn)
 	if err != nil {
-		handler_err := &HandlerError{
+		handler_response := &HandlerResponse{
 			StatusCode: response.SERVER_ERROR,
 			Message:    err.Error(),
 		}
-		handler_err.handlerResponseWriter(conn, bytes.NewBuffer([]byte(handler_err.Message)))
+		handler_response.HandlerResponseWriter(writer)
 	}
 
-	handler_data := []byte{}
-	buffer := bytes.NewBuffer(handler_data)
-	handler_err := s.Handler(buffer, req)
-
-	handler_err.handlerResponseWriter(conn, buffer)
+	s.Handler(writer, req)
 }
