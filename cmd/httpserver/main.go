@@ -20,7 +20,7 @@ import (
 const port = 42069
 
 func main() {
-	server, err := server.Serve(port, proxyHandler)
+	server, err := server.Serve(port, videoHandler)
 	if err != nil {
 		log.Fatalf("Error starting server: %v", err)
 	}
@@ -56,6 +56,38 @@ func handler(w response.Writer, r *request.Request) {
 	}
 	handler_response.Message = htmlResponseFormat(handler_response.StatusCode, handler_response.Message)
 	handler_response.HandlerResponseWriter(w)
+}
+
+func videoHandler(w response.Writer, r *request.Request) {
+	handler_response := server.HandlerResponse{}
+	if r.RequestLine.RequestTarget == "/video" {
+		handler_response.StatusCode = response.OK
+
+		handler_response.SetHeader("Content-Type", "video/mp4")
+		handler_response.SetHeader("Connection", "close")
+
+		err := w.WriteStatusLine(handler_response.StatusCode)
+		if err != nil {
+			handler_response.HandlerErrorResponse(w, response.SERVER_ERROR, "Error while writing status line: "+err.Error())
+			return
+		}
+		err = w.WriteHeaders(handler_response.GetHeaders())
+		if err != nil {
+			handler_response.HandlerErrorResponse(w, response.SERVER_ERROR, "Error while writing headers: "+err.Error())
+			return
+		}
+
+		video_data, err := os.ReadFile("../../assets/vim.mp4")
+		if err != nil {
+			handler_response.HandlerErrorResponse(w, response.SERVER_ERROR, "Error while reading video file: "+err.Error())
+			return
+		}
+		_, err = w.WriteBody(video_data)
+		if err != nil {
+			handler_response.HandlerErrorResponse(w, response.SERVER_ERROR, "Error while writing body: "+err.Error())
+			return
+		}
+	}
 }
 
 func proxyHandler(w response.Writer, r *request.Request) {
