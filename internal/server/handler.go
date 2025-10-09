@@ -43,7 +43,8 @@ type Handler func(response.Writer, *request.Request)
 func (hr *HandlerResponse) HandlerResponseWriter(w response.Writer) {
 	err := w.WriteStatusLine(hr.StatusCode)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err.Error())
+		w.Close()
 		return
 	}
 	if hr.headers["content-type"] == "" {
@@ -51,17 +52,20 @@ func (hr *HandlerResponse) HandlerResponseWriter(w response.Writer) {
 	}
 	headers, err := response.GetDefaultHeaders(len(hr.Message), hr.headers["content-type"])
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err.Error())
+		w.Close()
 		return
 	}
 	err = w.WriteHeaders(headers)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err.Error())
+		w.Close()
 		return
 	}
 	_, err = w.WriteBody([]byte(hr.Message))
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err.Error())
+		w.Close()
 		return
 	}
 }

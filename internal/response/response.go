@@ -49,6 +49,13 @@ func WriterStateString(ws WriterState) string {
 	return write_state_string
 }
 
+func (w *Writer) Close() error {
+	if closer, ok := w.Writer.(io.Closer); ok {
+		return closer.Close()
+	}
+	return nil
+}
+
 func (w *Writer) WriteStatusLine(status_code StatusCode) error {
 	if w.WriterState != STATUS_LINE {
 		return errors.New("cant write " + WriterStateString(STATUS_LINE) + " now, you should write: " + WriterStateString(w.WriterState))

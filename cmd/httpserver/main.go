@@ -68,23 +68,27 @@ func videoHandler(w response.Writer, r *request.Request) {
 
 		err := w.WriteStatusLine(handler_response.StatusCode)
 		if err != nil {
-			handler_response.HandlerErrorResponse(w, response.SERVER_ERROR, "Error while writing status line: "+err.Error())
+			log.Println("Error while writing status line: " + err.Error())
+			w.Close()
 			return
 		}
 		err = w.WriteHeaders(handler_response.GetHeaders())
 		if err != nil {
-			handler_response.HandlerErrorResponse(w, response.SERVER_ERROR, "Error while writing headers: "+err.Error())
+			log.Println("Error while writing headers: " + err.Error())
+			w.Close()
 			return
 		}
 
 		video_data, err := os.ReadFile("../../assets/vim.mp4")
 		if err != nil {
-			handler_response.HandlerErrorResponse(w, response.SERVER_ERROR, "Error while reading video file: "+err.Error())
+			log.Println("Error while reading video file: " + err.Error())
+			w.Close()
 			return
 		}
 		_, err = w.WriteBody(video_data)
 		if err != nil {
-			handler_response.HandlerErrorResponse(w, response.SERVER_ERROR, "Error while writing body: "+err.Error())
+			log.Println("Error while writing body: " + err.Error())
+			w.Close()
 			return
 		}
 	}
@@ -123,12 +127,14 @@ func proxyHandler(w response.Writer, r *request.Request) {
 
 			err = w.WriteStatusLine(handler_response.StatusCode)
 			if err != nil {
-				handler_response.HandlerErrorResponse(w, response.SERVER_ERROR, "Error while writing status line: "+err.Error())
+				log.Println("Error while writing status line: " + err.Error())
+				w.Close()
 				return
 			}
 			err = w.WriteHeaders(handler_response.GetHeaders())
 			if err != nil {
-				handler_response.HandlerErrorResponse(w, response.SERVER_ERROR, "Error while writing headers: "+err.Error())
+				log.Println("Error while writing headers: " + err.Error())
+				w.Close()
 				return
 			}
 
@@ -143,14 +149,16 @@ func proxyHandler(w response.Writer, r *request.Request) {
 					if body_read_err == io.EOF {
 						break
 					}
-					handler_response.HandlerErrorResponse(w, response.SERVER_ERROR, "Error while parsing body of response from \""+url+"\": "+body_read_err.Error())
+					log.Println("Error while parsing body of response from \"" + url + "\": " + body_read_err.Error())
+					w.Close()
 					return
 				}
 
 				hasher.Write(body[:n])
 				_, err = w.WriteChunkedBody(body[:n])
 				if err != nil {
-					handler_response.HandlerErrorResponse(w, response.SERVER_ERROR, "Error while writing a body chunk: "+err.Error())
+					log.Println("Error while writing a body chunk: " + err.Error())
+					w.Close()
 					return
 				}
 
@@ -160,7 +168,8 @@ func proxyHandler(w response.Writer, r *request.Request) {
 			}
 			_, err = w.WriteChunkedBodyDone()
 			if err != nil {
-				handler_response.HandlerErrorResponse(w, response.SERVER_ERROR, "Error while writing body done chunk: "+err.Error())
+				log.Println("Error while writing body done chunk: " + err.Error())
+				w.Close()
 				return
 			}
 
@@ -169,7 +178,8 @@ func proxyHandler(w response.Writer, r *request.Request) {
 			handler_response.SetHeader("X-Content-Length", strconv.Itoa(body_bytes))
 			err = w.WriteTrailers(handler_response.GetHeaders())
 			if err != nil {
-				handler_response.HandlerErrorResponse(w, response.SERVER_ERROR, "Error while writing trailers: "+err.Error())
+				log.Println("Error while writing trailers: " + err.Error())
+				w.Close()
 				return
 			}
 		}
