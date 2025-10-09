@@ -40,8 +40,12 @@ func (s *Server) Close() error {
 func (s *Server) listen() {
 	for !s.Closed.Load() {
 		connection, err := s.Listener.Accept()
-		if err != nil && !s.Closed.Load() {
+		if !s.Closed.Load() {
+			return
+		}
+		if err != nil {
 			log.Fatal(err)
+			return
 		}
 		fmt.Println("A connection has been accepted")
 		go s.handle(connection)
