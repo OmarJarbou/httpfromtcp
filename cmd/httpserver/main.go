@@ -79,7 +79,7 @@ func videoHandler(w response.Writer, r *request.Request) {
 			return
 		}
 
-		video_data, err := os.ReadFile("../../assets/vim.mp4")
+		video_data, err := os.ReadFile("assets/vim.mp4")
 		if err != nil {
 			log.Println("Error while reading video file: " + err.Error())
 			w.Close()
