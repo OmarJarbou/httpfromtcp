@@ -9,6 +9,7 @@ import (
 	"sync/atomic"
 
 	"github.com/OmarJarbou/httpfromtcp/internal/request"
+	"github.com/OmarJarbou/httpfromtcp/internal/response"
 )
 
 type Server struct {
@@ -53,9 +54,14 @@ func (s *Server) listen() {
 }
 
 func (s *Server) handle(conn net.Conn) {
+	defer conn.Close()
 	req, err := request.RequestFromReader(conn)
 	if err != nil {
-		log.Fatal(err)
+		handler_err := &HandlerError{
+			StatusCode: response.SERVER_ERROR,
+			Message:    err.Error(),
+		}
+		handler_err.handlerResponseWriter(conn, bytes.NewBuffer([]byte(handler_err.Message)))
 	}
 
 	handler_data := []byte{}
