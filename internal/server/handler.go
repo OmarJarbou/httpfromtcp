@@ -67,6 +67,7 @@ func (hr *HandlerResponse) HandlerResponseWriter(w response.Writer) {
 }
 
 func (hr *HandlerResponse) HandlerErrorResponse(w response.Writer, StatusCode response.StatusCode, message string) {
+	w.WriterState = response.STATUS_LINE
 	hr.StatusCode = StatusCode
 	hr.ClearHeaders()
 	hr.SetHeader("Content-Type", "text/plain")
