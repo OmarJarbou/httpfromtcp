@@ -2,10 +2,13 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"syscall"
 
 	"github.com/OmarJarbou/httpfromtcp/internal/request"
@@ -16,7 +19,7 @@ import (
 const port = 42069
 
 func main() {
-	server, err := server.Serve(port, handler)
+	server, err := server.Serve(port, proxyHandler)
 	if err != nil {
 		log.Fatalf("Error starting server: %v", err)
 	}
@@ -52,6 +55,61 @@ func handler(w response.Writer, r *request.Request) {
 	}
 	handler_response.Message = htmlResponseFormat(handler_response.StatusCode, handler_response.Message)
 	handler_response.HandlerResponseWriter(w)
+}
+
+func proxyHandler(w response.Writer, r *request.Request) {
+	handler_response := server.HandlerResponse{}
+	if strings.HasPrefix(r.RequestLine.RequestTarget, "/httpbin") {
+		client := &http.Client{}
+		url := "https://httpbin.org" + strings.TrimPrefix(r.RequestLine.RequestTarget, "/httpbin")
+		req, err := client.Get(url)
+		if err != nil {
+			handler_response.HandlerErrorResponse(w, response.CLIENT_ERROR, "Error while making request to \""+url+"\": "+err.Error())
+			return
+		} else {
+			status, err := strconv.Atoi(strings.Split(req.Status, " ")[0])
+			if err != nil {
+				handler_response.HandlerErrorResponse(w, response.SERVER_ERROR, "Error while parsing status of response from \""+url+"\": "+err.Error())
+				return
+			}
+
+			handler_response.SetHeader("Content-Type", "text/plain")
+			handler_response.SetHeader("Connection", "close")
+			handler_response.SetHeader("Transfer-Encoding", "chunked")
+
+			body := make([]byte, 1024)
+			for {
+				n, body_read_err := req.Body.Read(body)
+				fmt.Println(n)
+				if body_read_err != nil && !(body_read_err == io.EOF && n > 0) {
+					if body_read_err == io.EOF {
+						return
+					}
+					handler_response.HandlerErrorResponse(w, response.SERVER_ERROR, "Error while parsing body of response from \""+url+"\": "+body_read_err.Error())
+					return
+				}
+
+				if status >= 200 && status <= 299 {
+					handler_response.StatusCode = response.OK
+				} else if status >= 400 && status <= 499 {
+					handler_response.StatusCode = response.CLIENT_ERROR
+				} else if status >= 500 && status <= 599 {
+					handler_response.StatusCode = response.SERVER_ERROR
+				} else {
+					handler_response.StatusCode = response.OK
+				}
+
+				w.WriteStatusLine(handler_response.StatusCode)
+				w.WriteHeaders(handler_response.GetHeaders())
+				w.WriteChunkedBody(body[:n])
+				w.WriteChunkedBodyDone()
+
+				if body_read_err == io.EOF {
+					return
+				}
+			}
+		}
+	}
 }
 
 func htmlResponseFormat(status_code response.StatusCode, message string) string {

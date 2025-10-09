@@ -22,6 +22,22 @@ func (hr *HandlerResponse) SetHeader(key, value string) {
 	hr.headers[strings.ToLower(key)] = value
 }
 
+func (hr *HandlerResponse) GetHeaders() headers.Headers {
+	if hr.headers == nil {
+		hr.headers = headers.Headers{}
+	}
+	return hr.headers
+}
+
+func (hr *HandlerResponse) ClearHeaders() {
+	if hr.headers == nil {
+		return
+	}
+	for key := range hr.headers {
+		delete(hr.headers, key)
+	}
+}
+
 type Handler func(response.Writer, *request.Request)
 
 func (hr *HandlerResponse) HandlerResponseWriter(w response.Writer) {
@@ -33,7 +49,7 @@ func (hr *HandlerResponse) HandlerResponseWriter(w response.Writer) {
 	if hr.headers["content-type"] == "" {
 		hr.headers["content-type"] = "text/plain"
 	}
-	headers, err := response.GetHeaders(len(hr.Message), hr.headers["content-type"])
+	headers, err := response.GetDefaultHeaders(len(hr.Message), hr.headers["content-type"])
 	if err != nil {
 		log.Fatal(err)
 		return
@@ -48,4 +64,13 @@ func (hr *HandlerResponse) HandlerResponseWriter(w response.Writer) {
 		log.Fatal(err)
 		return
 	}
+}
+
+func (hr *HandlerResponse) HandlerErrorResponse(w response.Writer, StatusCode response.StatusCode, message string) {
+	hr.StatusCode = StatusCode
+	hr.ClearHeaders()
+	hr.SetHeader("Content-Type", "text/plain")
+	hr.SetHeader("Connection", "close")
+	hr.Message = message
+	hr.HandlerResponseWriter(w)
 }

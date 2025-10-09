@@ -2,6 +2,7 @@ package response
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"mime"
 	"strconv"
@@ -73,7 +74,7 @@ func isMimeType(s string) bool {
 	return err == nil
 }
 
-func GetHeaders(content_len int, content_type string) (headers.Headers, error) {
+func GetDefaultHeaders(content_len int, content_type string) (headers.Headers, error) {
 	headers := headers.Headers{}
 
 	headers["content-length"] = strconv.Itoa(content_len)
@@ -111,8 +112,21 @@ func (w *Writer) WriteBody(data []byte) (int, error) {
 	}
 
 	n, err := w.Writer.Write(data)
-	if err == nil {
-		w.WriterState = HEADERS
-	}
+	return n, err
+}
+
+func (w *Writer) WriteChunkedBody(p []byte) (int, error) {
+	chunked_body := ""
+	chunk_length_in_hex := fmt.Sprintf("%X", len(p))
+	chunked_body += chunk_length_in_hex + "\r\n" + string(p) + "\r\n"
+
+	n, err := w.Writer.Write([]byte(chunked_body))
+	return n, err
+}
+
+func (w *Writer) WriteChunkedBodyDone() (int, error) {
+	chunked_body_done := "0\r\n\r\n"
+
+	n, err := w.Writer.Write([]byte(chunked_body_done))
 	return n, err
 }
