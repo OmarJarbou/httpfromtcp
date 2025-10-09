@@ -6,6 +6,7 @@ import (
 	"io"
 	"mime"
 	"strconv"
+	"strings"
 
 	"github.com/OmarJarbou/httpfromtcp/internal/headers"
 )
@@ -24,6 +25,7 @@ const (
 	STATUS_LINE WriterState = iota
 	HEADERS
 	BODY
+	TRAILERS
 )
 
 type Writer struct {
@@ -40,6 +42,8 @@ func WriterStateString(ws WriterState) string {
 		write_state_string = "headers"
 	case BODY:
 		write_state_string = "body"
+	case TRAILERS:
+		write_state_string = "trailers"
 	}
 
 	return write_state_string
@@ -112,10 +116,17 @@ func (w *Writer) WriteBody(data []byte) (int, error) {
 	}
 
 	n, err := w.Writer.Write(data)
+	if err == nil {
+		w.WriterState = TRAILERS
+	}
 	return n, err
 }
 
 func (w *Writer) WriteChunkedBody(p []byte) (int, error) {
+	if w.WriterState != BODY {
+		return 0, errors.New("cant write " + WriterStateString(BODY) + " now, you should write: " + WriterStateString(w.WriterState))
+	}
+
 	chunked_body := ""
 	chunk_length_in_hex := fmt.Sprintf("%X", len(p))
 	chunked_body += chunk_length_in_hex + "\r\n" + string(p) + "\r\n"
@@ -125,8 +136,38 @@ func (w *Writer) WriteChunkedBody(p []byte) (int, error) {
 }
 
 func (w *Writer) WriteChunkedBodyDone() (int, error) {
-	chunked_body_done := "0\r\n\r\n"
+	if w.WriterState != BODY {
+		return 0, errors.New("cant write " + WriterStateString(BODY) + " now, you should write: " + WriterStateString(w.WriterState))
+	}
+
+	chunked_body_done := "0\r\n"
 
 	n, err := w.Writer.Write([]byte(chunked_body_done))
+	if err == nil {
+		w.WriterState = TRAILERS
+	}
 	return n, err
+}
+
+func (w *Writer) WriteTrailers(h headers.Headers) error {
+	if w.WriterState != TRAILERS {
+		return errors.New("cant write " + WriterStateString(TRAILERS) + " now, you should write: " + WriterStateString(w.WriterState))
+	}
+	trailers_string, ok := h["trailer"]
+	if !ok {
+		return errors.New("cant write " + WriterStateString(TRAILERS) + "; because \"Trailer\" is not specified in headers")
+	}
+
+	trailers := strings.Split(trailers_string, ", ")
+	trailers_text := ""
+	for _, trailer := range trailers {
+		trailers_text += trailer + ": " + h[strings.ToLower(trailer)] + "\r\n"
+	}
+	trailers_text += "\r\n"
+
+	_, err := w.Writer.Write([]byte(trailers_text))
+	if err != nil {
+		return err
+	}
+	return nil
 }

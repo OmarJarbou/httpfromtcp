@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"io"
 	"log"
@@ -73,40 +74,71 @@ func proxyHandler(w response.Writer, r *request.Request) {
 				return
 			}
 
+			if status >= 200 && status <= 299 {
+				handler_response.StatusCode = response.OK
+			} else if status >= 400 && status <= 499 {
+				handler_response.StatusCode = response.CLIENT_ERROR
+			} else if status >= 500 && status <= 599 {
+				handler_response.StatusCode = response.SERVER_ERROR
+			} else {
+				handler_response.StatusCode = response.OK
+			}
+
 			handler_response.SetHeader("Content-Type", "text/plain")
 			handler_response.SetHeader("Connection", "close")
 			handler_response.SetHeader("Transfer-Encoding", "chunked")
+			handler_response.SetHeader("Trailer", "X-Content-SHA256, X-Content-Length")
 
+			err = w.WriteStatusLine(handler_response.StatusCode)
+			if err != nil {
+				handler_response.HandlerErrorResponse(w, response.SERVER_ERROR, "Error while writing status line: "+err.Error())
+				return
+			}
+			err = w.WriteHeaders(handler_response.GetHeaders())
+			if err != nil {
+				handler_response.HandlerErrorResponse(w, response.SERVER_ERROR, "Error while writing headers: "+err.Error())
+				return
+			}
+
+			hasher := sha256.New()
 			body := make([]byte, 1024)
+			body_bytes := 0
 			for {
 				n, body_read_err := req.Body.Read(body)
+				body_bytes += n
 				fmt.Println(n)
 				if body_read_err != nil && !(body_read_err == io.EOF && n > 0) {
 					if body_read_err == io.EOF {
-						return
+						break
 					}
 					handler_response.HandlerErrorResponse(w, response.SERVER_ERROR, "Error while parsing body of response from \""+url+"\": "+body_read_err.Error())
 					return
 				}
 
-				if status >= 200 && status <= 299 {
-					handler_response.StatusCode = response.OK
-				} else if status >= 400 && status <= 499 {
-					handler_response.StatusCode = response.CLIENT_ERROR
-				} else if status >= 500 && status <= 599 {
-					handler_response.StatusCode = response.SERVER_ERROR
-				} else {
-					handler_response.StatusCode = response.OK
-				}
-
-				w.WriteStatusLine(handler_response.StatusCode)
-				w.WriteHeaders(handler_response.GetHeaders())
-				w.WriteChunkedBody(body[:n])
-				w.WriteChunkedBodyDone()
-
-				if body_read_err == io.EOF {
+				hasher.Write(body[:n])
+				_, err = w.WriteChunkedBody(body[:n])
+				if err != nil {
+					handler_response.HandlerErrorResponse(w, response.SERVER_ERROR, "Error while writing a body chunk: "+err.Error())
 					return
 				}
+
+				if body_read_err == io.EOF {
+					break
+				}
+			}
+			_, err = w.WriteChunkedBodyDone()
+			if err != nil {
+				handler_response.HandlerErrorResponse(w, response.SERVER_ERROR, "Error while writing body done chunk: "+err.Error())
+				return
+			}
+
+			hash := hasher.Sum(nil)
+			handler_response.SetHeader("X-Content-SHA256", fmt.Sprintf("%x", hash))
+			handler_response.SetHeader("X-Content-Length", strconv.Itoa(body_bytes))
+			err = w.WriteTrailers(handler_response.GetHeaders())
+			if err != nil {
+				handler_response.HandlerErrorResponse(w, response.SERVER_ERROR, "Error while writing trailers: "+err.Error())
+				return
 			}
 		}
 	}
